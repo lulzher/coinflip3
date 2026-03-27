@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>미니 카지노</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans KR', sans-serif; background: #f5f5f5; display: flex; justify-content: center; padding: 0 1rem 4rem; }
+    .game-wrap { width: 100%; max-width: 480px; }
+    #auth-overlay { position: fixed; inset: 0; background: #f5f5f5; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; padding: 2rem; }
+    .auth-box { background: #fff; border-radius: 20px; padding: 2.5rem 2rem; width: 100%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.08); }
+    .auth-logo { text-align: center; font-size: 48px; margin-bottom: 0.5rem; }
+    .auth-title { text-align: center; font-size: 22px; font-weight: 700; color: #111; margin-bottom: 0.25rem; }
+    .auth-sub { text-align: center; font-size: 13px; color: #888; margin-bottom: 2rem; }
+    .auth-input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid #ddd; font-size: 14px; font-family: inherit; outline: none; margin-bottom: 10px; transition: border-color 0.15s; }
+    .auth-input:focus { border-color: #378ADD; }
+    .auth-btn { width: 100%; padding: 13px; border-radius: 10px; border: none; font-size: 15px; font-weight: 500; font-family: inherit; cursor: pointer; transition: opacity 0.15s; margin-bottom: 8px; }
+    .auth-btn:hover { opacity: 0.85; }
+    .btn-primary { background: #378ADD; color: #fff; }
+    .btn-google { background: #fff; color: #333; border: 1.5px solid #ddd; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-apple { background: #111; color: #fff; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .auth-divider { text-align: center; font-size: 12px; color: #bbb; margin: 12px 0; position: relative; }
+    .auth-divider::before, .auth-divider::after { content:''; position:absolute; top:50%; width:42%; height:1px; background:#eee; }
+    .auth-divider::before { left:0; } .auth-divider::after { right:0; }
+    .auth-toggle { text-align: center; font-size: 13px; color: #888; margin-top: 16px; }
+    .auth-toggle a { color: #378ADD; text-decoration: none; cursor: pointer; font-weight: 500; }
+    .auth-error { font-size: 12px; color: #D85A30; text-align: center; min-height: 18px; margin-bottom: 6px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 0 1rem; border-bottom: 1px solid #ddd; margin-bottom: 1.5rem; }
+    .header-title { font-size: 16px; font-weight: 500; color: #111; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .user-badge { font-size: 12px; color: #555; background: #ebebeb; border-radius: 20px; padding: 4px 10px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .logout-btn { font-size: 12px; color: #888; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+    .logout-btn:hover { background: #f0f0f0; }
+    .menu-btn { background: none; border: none; cursor: pointer; padding: 4px; display: flex; flex-direction: column; gap: 5px; }
+    .menu-btn span { display: block; width: 22px; height: 2px; background: #333; border-radius: 2px; }
+    .dropdown { display: none; position: absolute; right: calc(50% - 240px); background: #fff; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; min-width: 170px; overflow: hidden; }
+    .dropdown.open { display: block; }
+    .dropdown-item { padding: 12px 16px; font-size: 14px; cursor: pointer; color: #333; display: flex; align-items: center; gap: 8px; }
+    .dropdown-item:hover { background: #f5f5f5; }
+    .dropdown-item.active { font-weight: 500; color: #378ADD; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+    .stat-card { background: #ebebeb; border-radius: 8px; padding: 0.75rem 1rem; text-align: center; }
+    .stat-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+    .stat-value { font-size: 20px; font-weight: 500; color: #111; }
+    .charge-banner { display: none; background: #FAECE7; border: 1px solid #F0997B; border-radius: 8px; padding: 10px 14px; text-align: center; font-size: 13px; color: #993C1D; font-weight: 500; margin-bottom: 1rem; }
+    .charge-banner.show { display: block; }
+    .info-bar { display: flex; justify-content: center; gap: 16px; font-size: 13px; color: #888; background: #ebebeb; border-radius: 8px; padding: 8px 12px; text-align: center; }
+    .info-bar span { font-weight: 500; color: #111; }
+    .fee-note { font-size: 11px; color: #aaa; text-align: center; margin-top: 4px; }
+    .divider { border: none; border-top: 1px solid #ddd; margin: 1rem 0; }
+    .bet-area { display: flex; flex-direction: column; gap: 12px; }
+    .bet-row { display: flex; align-items: center; gap: 12px; }
+    .bet-row label { font-size: 14px; color: #888; min-width: 60px; }
+    .mult-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mult-btn { padding: 8px 14px; border-radius: 8px; border: 2px solid #bbb; background: #fff; color: #333; cursor: pointer; font-size: 13px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1.2; }
+    .mult-btn:hover { background: #f0f0f0; }
+    .mult-btn .prob { font-size: 11px; color: #888; font-weight: 400; }
+    .bet-input-wrap { display: flex; align-items: center; gap: 8px; flex: 1; }
+    .bet-input { width: 100px; padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #111; font-size: 14px; }
+    .bet-input.over { border-color: #D85A30; background: #FFF0EC; }
+    .bet-warn { font-size: 11px; color: #D85A30; margin-top: 2px; min-height: 16px; }
+    .quick-btns { display: flex; gap: 6px; }
+    .quick-btn { padding: 6px 12px; font-size: 12px; border-radius: 8px; border: 1px solid #bbb; background: #fff; color: #555; cursor: pointer; font-weight: 500; }
+    .quick-btn:hover { background: #f0f0f0; }
+    .action-btn { width: 100%; padding: 14px; border-radius: 12px; border: none; background: #378ADD; color: #fff; font-size: 16px; font-weight: 500; cursor: pointer; margin-top: 4px; transition: opacity 0.15s; }
+    .action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .action-btn:not(:disabled):hover { opacity: 0.88; }
+    .result-msg { text-align: center; font-size: 15px; font-weight: 500; min-height: 24px; }
+    .result-win { color: #0F6E56; }
+    .result-lose { color: #993C1D; }
+    .choice-btns { display: flex; gap: 8px; }
+    .choice-btn { padding: 10px 22px; border-radius: 8px; border: 2px solid #bbb; background: #fff; color: #333; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .choice-btn:hover { background: #f0f0f0; }
+    .log-area { margin-top: 2rem; }
+    .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .log-title { font-size: 13px; color: #888; }
+    .log-clear-btn { font-size: 12px; color: #888; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+    .log-clear-btn:hover { background: #f0f0f0; }
+    .log-list { display: flex; flex-direction: column; gap: 4px; }
+    .log-empty { font-size: 13px; color: #888; padding: 6px 8px; }
+    .log-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 8px 10px; border-radius: 8px; background: #ebebeb; }
+    .log-win { border-left: 3px solid #1D9E75; }
+    .log-lose { border-left: 3px solid #D85A30; }
+    .log-left { display: flex; flex-direction: column; gap: 2px; }
+    .log-num { font-size: 11px; color: #aaa; }
+    .log-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+    .log-amount { font-weight: 500; }
+    .log-balance { font-size: 11px; }
+    .saving-indicator { font-size: 11px; color: #aaa; text-align: center; margin-top: 8px; min-height: 16px; }
+    .coin-area { display: flex; flex-direction: column; align-items: center; gap: 1rem; margin: 1.5rem 0; }
+    .coin { width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; border: 3px solid #ccc; background: #ebebeb; }
+    .coin.flipping { animation: coinSpin 0.6s ease-out; }
+    @keyframes coinSpin { 0%{transform:rotateY(0deg) scale(1);}50%{transform:rotateY(900deg) scale(0.8);}100%{transform:rotateY(1800deg) scale(1);} }
+    .snail-track-wrap { margin: 1.5rem 0; }
+    .snail-track { position: relative; height: 80px; background: #e8e0d0; border-radius: 12px; overflow: hidden; border: 2px solid #c8b89a; }
+    .track-line { position: absolute; top: 50%; left: 50%; width: 2px; height: 100%; background: #aaa; transform: translate(-50%,-50%); opacity: 0.5; }
+    .track-label-left { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #888; }
+    .track-label-right { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #888; }
+    .snail { position: absolute; top: 50%; font-size: 32px; transform: translateY(-50%); left: calc(50% - 16px); }
+    .dir-btns { display: flex; gap: 8px; }
+    .dir-btn { flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #bbb; background: #fff; color: #333; cursor: pointer; font-size: 15px; font-weight: 500; text-align: center; }
+    .dir-btn:hover { background: #f0f0f0; }
+    .dice-area { display: flex; flex-direction: column; align-items: center; gap: 1rem; margin: 1.5rem 0; }
+    .dice { width: 90px; height: 90px; background: #fff; border: 3px solid #ccc; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 48px; }
+    .slot-area { margin: 1.5rem 0; }
+    .slot-machine { background: #222; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .reels { display: flex; gap: 8px; }
+    .reel { width: 80px; height: 90px; background: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 44px; }
+    .reel.spinning { animation: reelSpin 0.1s linear infinite; }
+    @keyframes reelSpin { 0%{transform:translateY(0);}25%{transform:translateY(-6px);}75%{transform:translateY(6px);}100%{transform:translateY(0);} }
+    .slot-paytable { width: 100%; background: #333; border-radius: 10px; padding: 10px 14px; }
+    .slot-paytable-title { font-size: 11px; color: #aaa; margin-bottom: 6px; }
+    .slot-paytable-row { display: flex; justify-content: space-between; font-size: 12px; color: #ddd; padding: 2px 0; }
+    .slot-paytable-row span:last-child { color: #FFD700; font-weight: 500; }
+    .slot-spin-btn { width: 100%; padding: 14px; border-radius: 12px; border: none; background: #FFD700; color: #111; font-size: 16px; font-weight: 500; cursor: pointer; margin-top: 4px; transition: opacity 0.15s; }
+    .slot-spin-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .slot-spin-btn:not(:disabled):hover { opacity: 0.88; }
+    .slot-bet-area { display: flex; flex-direction: column; gap: 12px; }
+  </style>
+</head>
+<body>
+
+<div id="auth-overlay">
+  <div class="auth-box">
+    <div class="auth-logo">🎰</div>
+    <div class="auth-title">미니 카지노</div>
+    <div class="auth-sub">로그인하고 게임을 시작하세요</div>
+    <div id="auth-login-form">
+      <input class="auth-input" type="email" id="login-email" placeholder="이메일" onkeydown="if(event.key==='Enter')emailLogin()" />
+      <input class="auth-input" type="password" id="login-pw" placeholder="비밀번호" onkeydown="if(event.key==='Enter')emailLogin()" />
+      <div class="auth-error" id="login-error"></div>
+      <button class="auth-btn btn-primary" onclick="emailLogin()">이메일로 로그인</button>
+      <div class="auth-divider">또는</div>
+      <button class="auth-btn btn-google" onclick="googleLogin()">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+        Google로 로그인
+      </button>
+      <button class="auth-btn btn-apple" onclick="appleLogin()">
+        <svg width="18" height="18" viewBox="0 0 814 1000" fill="white"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-36.8-155.8-105.4C27.1 777.3 0 711.7 0 647.2c0-151.5 98.7-231.7 195.7-231.7 61.6 0 113.5 40.8 155.8 40.8 40.6 0 101.4-43.4 170.8-43.4 27.5 0 108.1 3.2 160.4 77.4zM554.1 158.5c24.4-28.7 41.3-69.1 41.3-109.4 0-5.8-.6-11.6-1.3-17.5-39.5 1.9-86.1 26.3-114.4 58.7-22.5 25.7-43.4 66-43.4 107 0 6.4.6 12.8 1.9 17.5 2.6.6 5.8.6 8.9.6 35.9 0 79.3-23.1 106.9-56.9z"/></svg>
+        Apple로 로그인
+      </button>
+      <div class="auth-toggle">계정이 없으신가요? <a onclick="showRegister()">회원가입</a></div>
+    </div>
+    <div id="auth-register-form" style="display:none;">
+      <input class="auth-input" type="text" id="reg-name" placeholder="닉네임" />
+      <input class="auth-input" type="email" id="reg-email" placeholder="이메일" />
+      <input class="auth-input" type="password" id="reg-pw" placeholder="비밀번호 (6자 이상)" onkeydown="if(event.key==='Enter')emailRegister()" />
+      <div class="auth-error" id="reg-error"></div>
+      <button class="auth-btn btn-primary" onclick="emailRegister()">회원가입</button>
+      <div class="auth-toggle">이미 계정이 있으신가요? <a onclick="showLogin()">로그인</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="game-wrap" id="game-main" style="display:none;">
+  <div class="header">
+    <div class="header-title" id="header-title">🪙 동전 던지기</div>
+    <div class="header-right">
+      <div class="user-badge" id="user-badge">유저</div>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+      <div style="position:relative;">
+        <button class="menu-btn" onclick="toggleMenu()" id="menu-btn"><span></span><span></span><span></span></button>
+        <div class="dropdown" id="dropdown">
+          <div class="dropdown-item active" id="menu-coin" onclick="switchGame('coin')">🪙 동전 던지기</div>
+          <div class="dropdown-item" id="menu-snail" onclick="switchGame('snail')">🐌 달팽이 게임</div>
+          <div class="dropdown-item" id="menu-oddeven" onclick="switchGame('oddeven')">🎲 홀짝 게임</div>
+          <div class="dropdown-item" id="menu-slot" onclick="switchGame('slot')">🎰 슬롯머신</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">잔액</div><div class="stat-value" id="balance">0</div></div>
+    <div class="stat-card"><div class="stat-label">총 손익</div><div class="stat-value" id="profit" style="color:#888;">+0</div></div>
+    <div class="stat-card"><div class="stat-label">승리</div><div class="stat-value" id="wins" style="color:#0F6E56;">0</div></div>
+    <div class="stat-card"><div class="stat-label">패배</div><div class="stat-value" id="losses" style="color:#993C1D;">0</div></div>
+  </div>
+  <div class="charge-banner" id="charge-banner">💸 잔액이 0원이에요. 관리자에게 충전을 요청하세요!</div>
+
+  <div id="coin-game">
+    <div class="coin-area"><div class="coin" id="coin">🪙</div><div class="result-msg" id="coin-result-msg"></div></div>
+    <div class="info-bar">배율 <span id="coin-cur-mult">-</span> &nbsp;|&nbsp; 확률 <span id="coin-cur-prob">-</span> &nbsp;|&nbsp; 예상 수익 <span id="coin-cur-prize">-</span></div>
+    <div class="fee-note">수수료 7% 적용 · 이겼을 때 상금의 93%만 획득</div>
+    <hr class="divider">
+    <div class="bet-area">
+      <div class="bet-row"><label>선택</label><div class="choice-btns"><button class="choice-btn" id="btn-heads" onclick="coinSelectChoice('heads')">앞면 👑</button><button class="choice-btn" id="btn-tails" onclick="coinSelectChoice('tails')">뒷면 🌙</button></div></div>
+      <div class="bet-row" style="align-items:flex-start;"><label style="padding-top:6px;">배율</label><div class="mult-btns" id="coin-mult-btns"></div></div>
+      <div class="bet-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+        <div style="display:flex;align-items:center;gap:12px;width:100%;"><label>베팅액</label><div class="bet-input-wrap"><input class="bet-input" type="number" id="coin-bet" value="100" min="1" oninput="validateBet('coin')" /><div class="quick-btns"><button class="quick-btn" onclick="setBet('coin',0.25)">1/4</button><button class="quick-btn" onclick="setBet('coin',0.5)">절반</button><button class="quick-btn" onclick="setBet('coin',1)">전액</button></div></div></div>
+        <div style="padding-left:72px;"><div class="bet-warn" id="coin-bet-warn"></div></div>
+      </div>
+      <button class="action-btn" id="coin-flip-btn" onclick="coinFlip()" disabled>선택 후 던지기</button>
+    </div>
+  </div>
+
+  <div id="snail-game" style="display:none;">
+    <div class="snail-track-wrap"><div class="snail-track" id="snail-track"><div class="track-line"></div><div class="track-label-left">← 왼쪽</div><div class="track-label-right">오른쪽 →</div><div class="snail" id="snail">🐌</div></div></div>
+    <div class="result-msg" id="snail-result-msg" style="margin-bottom:0.5rem;"></div>
+    <div class="info-bar">배율 <span id="snail-cur-mult">-</span> &nbsp;|&nbsp; 확률 <span id="snail-cur-prob">-</span> &nbsp;|&nbsp; 예상 수익 <span id="snail-cur-prize">-</span></div>
+    <div class="fee-note">수수료 7% 적용 · 이겼을 때 상금의 93%만 획득</div>
+    <hr class="divider">
+    <div class="bet-area">
+      <div class="bet-row"><label>방향</label><div class="dir-btns"><button class="dir-btn" id="btn-left" onclick="snailSelectDir('left')">← 왼쪽</button><button class="dir-btn" id="btn-right" onclick="snailSelectDir('right')">오른쪽 →</button></div></div>
+      <div class="bet-row" style="align-items:flex-start;"><label style="padding-top:6px;">배율</label><div class="mult-btns" id="snail-mult-btns"></div></div>
+      <div class="bet-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+        <div style="display:flex;align-items:center;gap:12px;width:100%;"><label>베팅액</label><div class="bet-input-wrap"><input class="bet-input" type="number" id="snail-bet" value="100" min="1" oninput="validateBet('snail')" /><div class="quick-btns"><button class="quick-btn" onclick="setBet('snail',0.25)">1/4</button><button class="quick-btn" onclick="setBet('snail',0.5)">절반</button><button class="quick-btn" onclick="setBet('snail',1)">전액</button></div></div></div>
+        <div style="padding-left:72px;"><div class="bet-warn" id="snail-bet-warn"></div></div>
+      </div>
+      <button class="action-btn" id="snail-go-btn" onclick="snailGo()" disabled>출발!</button>
+    </div>
+  </div>
+
+  <div id="oddeven-game" style="display:none;">
+    <div class="dice-area"><div class="dice" id="dice">🎲</div><div class="result-msg" id="oddeven-result-msg"></div></div>
+    <div class="info-bar">배율 <span id="oe-cur-mult">-</span> &nbsp;|&nbsp; 확률 <span id="oe-cur-prob">-</span> &nbsp;|&nbsp; 예상 수익 <span id="oe-cur-prize">-</span></div>
+    <div class="fee-note">수수료 7% 적용 · 이겼을 때 상금의 93%만 획득</div>
+    <hr class="divider">
+    <div class="bet-area">
+      <div class="bet-row"><label>선택</label><div class="choice-btns"><button class="choice-btn" id="btn-odd" onclick="oeSelect('odd')">홀 (1·3·5)</button><button class="choice-btn" id="btn-even" onclick="oeSelect('even')">짝 (2·4·6)</button></div></div>
+      <div class="bet-row" style="align-items:flex-start;"><label style="padding-top:6px;">배율</label><div class="mult-btns" id="oe-mult-btns"></div></div>
+      <div class="bet-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+        <div style="display:flex;align-items:center;gap:12px;width:100%;"><label>베팅액</label><div class="bet-input-wrap"><input class="bet-input" type="number" id="oe-bet" value="100" min="1" oninput="validateBet('oe')" /><div class="quick-btns"><button class="quick-btn" onclick="setBet('oe',0.25)">1/4</button><button class="quick-btn" onclick="setBet('oe',0.5)">절반</button><button class="quick-btn" onclick="setBet('oe',1)">전액</button></div></div></div>
+        <div style="padding-left:72px;"><div class="bet-warn" id="oe-bet-warn"></div></div>
+      </div>
+      <button class="action-btn" id="oe-roll-btn" onclick="oeRoll()" disabled>주사위 굴리기!</button>
+    </div>
+  </div>
+
+  <div id="slot-game" style="display:none;">
+    <div class="slot-area">
+      <div class="slot-machine">
+        <div class="reels"><div class="reel" id="reel0">🎰</div><div class="reel" id="reel1">🎰</div><div class="reel" id="reel2">🎰</div></div>
+        <div class="slot-paytable">
+          <div class="slot-paytable-title">당첨표 (3개 일치) · 수수료 7% 적용</div>
+          <div class="slot-paytable-row"><span>7️⃣ 7️⃣ 7️⃣</span><span>×50 → 실수령 ×46.5</span></div>
+          <div class="slot-paytable-row"><span>💎 💎 💎</span><span>×20 → 실수령 ×18.6</span></div>
+          <div class="slot-paytable-row"><span>🍇 🍇 🍇</span><span>×10 → 실수령 ×9.3</span></div>
+          <div class="slot-paytable-row"><span>🍊 🍊 🍊</span><span>×5 → 실수령 ×4.65</span></div>
+          <div class="slot-paytable-row"><span>🍋 🍋 🍋</span><span>×3 → 실수령 ×2.79</span></div>
+          <div class="slot-paytable-row"><span>🍒 🍒 🍒</span><span>×2 → 실수령 ×1.86</span></div>
+        </div>
+      </div>
+      <div class="result-msg" id="slot-result-msg" style="margin-top:1rem;"></div>
+    </div>
+    <div class="slot-bet-area">
+      <div class="bet-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+        <div style="display:flex;align-items:center;gap:12px;width:100%;"><label>베팅액</label><div class="bet-input-wrap"><input class="bet-input" type="number" id="slot-bet" value="100" min="1" oninput="validateBet('slot')" /><div class="quick-btns"><button class="quick-btn" onclick="setBet('slot',0.25)">1/4</button><button class="quick-btn" onclick="setBet('slot',0.5)">절반</button><button class="quick-btn" onclick="setBet('slot',1)">전액</button></div></div></div>
+        <div style="padding-left:72px;"><div class="bet-warn" id="slot-bet-warn"></div></div>
+      </div>
+      <button class="slot-spin-btn" id="slot-spin-btn" onclick="slotSpin()">🎰 스핀!</button>
+    </div>
+  </div>
+
+  <div class="saving-indicator" id="saving-indicator"></div>
+  <div class="log-area">
+    <div class="log-header"><div class="log-title" id="log-title">게임 기록</div><button class="log-clear-btn" onclick="clearLog()">기록 지우기</button></div>
+    <div class="log-list" id="log-list"><div class="log-empty">아직 게임 기록이 없어요.</div></div>
+  </div>
+</div>
+
+<!-- Firebase Compat SDK: 일반 script 태그 → onclick과 완벽 호환 -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyBWEkYQqW0HF5jgklL3tELwLKyUxkmKh4Y",
+    authDomain: "bett-10c4f.firebaseapp.com",
+    projectId: "bett-10c4f",
+    storageBucket: "bett-10c4f.firebasestorage.app",
+    messagingSenderId: "643489339476",
+    appId: "1:643489339476:web:570e948837c21fedf0b5c1"
+  });
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const googleProvider = new firebase.auth.GoogleAuthProvider();
+  const appleProvider = new firebase.auth.OAuthProvider('apple.com');
+
+  let currentUser = null;
+  let balance = 0, wins = 0, losses = 0, profit = 0, gameCount = 0;
+  const logs = [];
+  const FEE = 0.93;
+  const MULT_CONFIG = [
+    {mult:1,  prob:0.46, label:'1배',  probLabel:'46%'},
+    {mult:2,  prob:0.31, label:'2배',  probLabel:'31%'},
+    {mult:3,  prob:0.23, label:'3배',  probLabel:'23%'},
+    {mult:5,  prob:0.15, label:'5배',  probLabel:'15%'},
+    {mult:10, prob:0.08, label:'10배', probLabel:'8%'},
+  ];
+
+  async function loadUserData(uid) {
+    const ref = db.collection('users').doc(uid);
+    const snap = await ref.get();
+    if (snap.exists) {
+      const d = snap.data();
+      balance = d.balance ?? 1000; wins = d.wins ?? 0; losses = d.losses ?? 0; profit = d.profit ?? 0; gameCount = d.gameCount ?? 0;
+    } else {
+      balance = 1000; wins = 0; losses = 0; profit = 0; gameCount = 0;
+      await ref.set({ balance, wins, losses, profit, gameCount, displayName: currentUser.displayName||'', email: currentUser.email||'', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    loadLogs(uid); updateStats();
+  }
+
+  function loadLogs(uid) {
+    db.collection('users').doc(uid).collection('logs').orderBy('createdAt','desc').limit(50).onSnapshot(snap => {
+      logs.length = 0; snap.forEach(d => logs.push({...d.data(), id: d.id})); renderLog();
+    });
+  }
+
+  async function saveUserData() {
+    if (!currentUser) return;
+    setSaving(true);
+    try { await db.collection('users').doc(currentUser.uid).update({ balance, wins, losses, profit, gameCount }); } catch(e) { console.error(e); }
+    setSaving(false);
+  }
+
+  async function addLogEntry(entry) {
+    if (!currentUser) return;
+    await db.collection('users').doc(currentUser.uid).collection('logs').add({ ...entry, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  }
+
+  function watchBalance(uid) {
+    db.collection('users').doc(uid).onSnapshot(snap => {
+      if (!snap.exists) return;
+      const d = snap.data();
+      if (d.balance !== undefined && d.balance !== balance) { balance = d.balance; wins = d.wins??wins; losses = d.losses??losses; profit = d.profit??profit; updateStats(); }
+    });
+  }
+
+  function emailLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const pw = document.getElementById('login-pw').value;
+    const err = document.getElementById('login-error');
+    err.textContent = '';
+    if (!email||!pw) { err.textContent='이메일과 비밀번호를 입력해주세요.'; return; }
+    auth.signInWithEmailAndPassword(email, pw).catch(e => { err.textContent = authErrorMsg(e.code); });
+  }
+
+  function emailRegister() {
+    const name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const pw = document.getElementById('reg-pw').value;
+    const err = document.getElementById('reg-error');
+    err.textContent = '';
+    if (!name) { err.textContent='닉네임을 입력해주세요.'; return; }
+    if (!email) { err.textContent='이메일을 입력해주세요.'; return; }
+    if (!pw) { err.textContent='비밀번호를 입력해주세요.'; return; }
+    auth.createUserWithEmailAndPassword(email, pw)
+      .then(cred => cred.user.updateProfile({ displayName: name }))
+      .catch(e => { err.textContent = authErrorMsg(e.code); });
+  }
+
+  function googleLogin() {
+    auth.signInWithPopup(googleProvider).catch(e => { document.getElementById('login-error').textContent = authErrorMsg(e.code); });
+  }
+
+  function appleLogin() {
+    auth.signInWithPopup(appleProvider).catch(() => { document.getElementById('login-error').textContent = 'Apple 로그인은 Apple Developer 도메인 설정이 필요합니다.'; });
+  }
+
+  function doLogout() { auth.signOut(); }
+
+  function showLogin() {
+    document.getElementById('auth-login-form').style.display = 'block';
+    document.getElementById('auth-register-form').style.display = 'none';
+    document.getElementById('login-error').textContent = '';
+  }
+
+  function showRegister() {
+    document.getElementById('auth-login-form').style.display = 'none';
+    document.getElementById('auth-register-form').style.display = 'block';
+    document.getElementById('reg-error').textContent = '';
+  }
+
+  function authErrorMsg(code) {
+    const m = { 'auth/user-not-found':'등록된 이메일이 없어요.','auth/wrong-password':'비밀번호가 틀렸어요.','auth/invalid-email':'이메일 형식이 올바르지 않아요.','auth/email-already-in-use':'이미 사용 중인 이메일이에요.','auth/weak-password':'비밀번호는 6자 이상이어야 해요.','auth/invalid-credential':'이메일 또는 비밀번호가 올바르지 않아요.','auth/popup-closed-by-user':'로그인 창이 닫혔어요.' };
+    return m[code] || '오류: ' + code;
+  }
+
+  auth.onAuthStateChanged(async user => {
+    if (user) {
+      currentUser = user;
+      document.getElementById('auth-overlay').style.display = 'none';
+      document.getElementById('game-main').style.display = 'block';
+      document.getElementById('user-badge').textContent = user.displayName || user.email || '유저';
+      await loadUserData(user.uid);
+      watchBalance(user.uid);
+    } else {
+      currentUser = null;
+      document.getElementById('auth-overlay').style.display = 'flex';
+      document.getElementById('game-main').style.display = 'none';
+    }
+  });
+
+  function fmt(n) { return Math.round(n).toLocaleString(); }
+  function calcPrize(bet, mult) { return Math.floor(bet * mult * FEE); }
+  function setSaving(on) { document.getElementById('saving-indicator').textContent = on ? '💾 저장 중...' : ''; }
+
+  function updateStats() {
+    document.getElementById('balance').textContent = fmt(balance);
+    const pEl = document.getElementById('profit');
+    pEl.textContent = (profit>=0?'+':'')+fmt(profit);
+    pEl.style.color = profit>0?'#0F6E56':profit<0?'#993C1D':'#888';
+    document.getElementById('wins').textContent = wins;
+    document.getElementById('losses').textContent = losses;
+    const broke = balance<=0;
+    document.getElementById('charge-banner').className = 'charge-banner'+(broke?' show':'');
+    ['coin','snail','oe','slot'].forEach(g => { const i=document.getElementById(g+'-bet'); if(i){if(broke)i.value=0;i.disabled=broke;} });
+    ['coin','snail','oe','slot'].forEach(g => validateBet(g));
+  }
+
+  function validateBet(game) {
+    const input=document.getElementById(game+'-bet'), warn=document.getElementById(game+'-bet-warn');
+    if(!input||!warn) return true;
+    if(balance<=0){input.classList.remove('over');warn.textContent='';refreshReady();return false;}
+    let val=parseInt(input.value);
+    if(isNaN(val)||val<1){input.value=1;val=1;}
+    if(val>balance){input.classList.add('over');warn.textContent=`잔액(${fmt(balance)}원)을 초과할 수 없어요`;refreshReady();return false;}
+    input.classList.remove('over');warn.textContent='';refreshReady();return true;
+  }
+
+  function getBet(game){const v=parseInt(document.getElementById(game+'-bet').value);return isNaN(v)?0:v;}
+  function isBetValid(game){if(balance<=0)return false;const b=getBet(game);return b>=1&&b<=balance;}
+  function refreshReady(){coinCheckReady();snailCheckReady();oeCheckReady();slotCheckReady();}
+
+  async function recordResult(won,bet,prize,label){
+    gameCount++;
+    if(won){balance+=prize;profit+=prize;wins++;}else{balance=Math.max(0,balance-bet);profit-=bet;losses++;}
+    const entry={won,bet,prize:won?prize:bet,label,balance,num:gameCount};
+    await Promise.all([saveUserData(),addLogEntry(entry)]);
+    updateStats();
+  }
+
+  function renderLog(){
+    const list=document.getElementById('log-list');
+    document.getElementById('log-title').textContent=`게임 기록 (${logs.length}판)`;
+    if(!logs.length){list.innerHTML='<div class="log-empty">아직 게임 기록이 없어요.</div>';return;}
+    list.innerHTML=logs.map(l=>`<div class="log-item ${l.won?'log-win':'log-lose'}"><div class="log-left"><div class="log-num">#${l.num||''}</div><div>${l.label}</div></div><div class="log-right"><div class="log-amount" style="color:${l.won?'#0F6E56':'#993C1D'};">${l.won?'+':'-'}${fmt(l.prize)}원</div><div class="log-balance" style="color:#888;">잔액 ${fmt(l.balance)}원</div></div></div>`).join('');
+  }
+
+  function clearLog(){if(!logs.length)return;if(!confirm('게임 기록을 모두 지울까요?'))return;logs.length=0;gameCount=0;renderLog();}
+  function setBet(game,ratio){if(balance<=0)return;document.getElementById(game+'-bet').value=Math.max(1,Math.floor(balance*ratio));validateBet(game);}
+  function toggleMenu(){document.getElementById('dropdown').classList.toggle('open');}
+  document.addEventListener('click',e=>{const btn=document.getElementById('menu-btn');if(btn&&!btn.contains(e.target))document.getElementById('dropdown').classList.remove('open');});
+
+  const GAME_TITLES={coin:'🪙 동전 던지기',snail:'🐌 달팽이 게임',oddeven:'🎲 홀짝 게임',slot:'🎰 슬롯머신'};
+  function switchGame(game){
+    ['coin','snail','oddeven','slot'].forEach(g=>{document.getElementById(g+'-game').style.display=g===game?'block':'none';document.getElementById('menu-'+g).className='dropdown-item'+(g===game?' active':'');});
+    document.getElementById('header-title').textContent=GAME_TITLES[game];
+    document.getElementById('dropdown').classList.remove('open');
+  }
+
+  function setBtn(id,on){const b=document.getElementById(id);if(!b)return;b.style.background=on?'#378ADD':'#fff';b.style.borderColor=on?'#185FA5':'#bbb';b.style.color=on?'#fff':'#333';}
+  function setMultBtn(prefix,idx){MULT_CONFIG.forEach((_,i)=>{const b=document.getElementById(prefix+i),on=i===idx;b.style.background=on?'#378ADD':'#fff';b.style.borderColor=on?'#185FA5':'#bbb';b.style.color=on?'#fff':'#333';b.querySelector('.prob').style.color=on?'#B5D4F4':'';})}
+  function buildMultBtns(containerId,prefix){document.getElementById(containerId).innerHTML=MULT_CONFIG.map((c,i)=>`<button class="mult-btn" id="${prefix}${i}" onclick="selectMult('${prefix}',${i})"><span>${c.label}</span><span class="prob">${c.probLabel}</span></button>`).join('');}
+
+  const selectedMults={coin:null,snail:null,oe:null};
+  function selectMult(prefix,idx){
+    const game=prefix.split('-')[0];selectedMults[game]=MULT_CONFIG[idx];setMultBtn(prefix,idx);
+    if(game==='coin')coinCheckReady();else if(game==='snail')snailCheckReady();else if(game==='oe')oeCheckReady();
+    updatePrizeDisplay(game);
+  }
+  function updatePrizeDisplay(game){
+    const m=selectedMults[game],betKey=game==='oe'?'oe':game,bet=getBet(betKey);
+    const prizeEl=document.getElementById((game==='oe'?'oe':game)+'-cur-prize'),multEl=document.getElementById((game==='oe'?'oe':game)+'-cur-mult'),probEl=document.getElementById((game==='oe'?'oe':game)+'-cur-prob');
+    if(!prizeEl)return;
+    if(m){multEl.textContent=m.label;probEl.textContent=m.probLabel;prizeEl.textContent=bet>0?'+'+fmt(calcPrize(bet,m.mult))+'원':'-';}
+    else{multEl.textContent='-';probEl.textContent='-';prizeEl.textContent='-';}
+  }
+
+  let coinChoice=null,coinFlipping=false;
+  function coinSelectChoice(c){coinChoice=c;setBtn('btn-heads',c==='heads');setBtn('btn-tails',c==='tails');coinCheckReady();}
+  function coinCheckReady(){document.getElementById('coin-flip-btn').disabled=!(coinChoice&&selectedMults.coin&&isBetValid('coin'));}
+  function coinFlip(){
+    if(coinFlipping||!coinChoice||!selectedMults.coin||!isBetValid('coin'))return;
+    const bet=getBet('coin'),m=selectedMults.coin;coinFlipping=true;document.getElementById('coin-flip-btn').disabled=true;
+    const coin=document.getElementById('coin');coin.className='coin flipping';coin.textContent='🪙';document.getElementById('coin-result-msg').textContent='';
+    setTimeout(async()=>{
+      const won=Math.random()<m.prob;coin.className='coin';coin.textContent=won?(coinChoice==='heads'?'👑':'🌙'):(coinChoice==='heads'?'🌙':'👑');
+      const prize=calcPrize(bet,m.mult),msg=document.getElementById('coin-result-msg');
+      msg.textContent=won?`승리! +${fmt(prize)}원 (${m.label}, 수수료 7%)`:`패배! -${fmt(bet)}원`;msg.className='result-msg '+(won?'result-win':'result-lose');
+      await recordResult(won,bet,prize,`🪙 ${coinChoice==='heads'?'앞면 👑':'뒷면 🌙'} · ${m.label}`);coinFlipping=false;
+    },650);
+  }
+
+  let snailDir=null,snailRunning=false;
+  function snailSelectDir(d){snailDir=d;setBtn('btn-left',d==='left');setBtn('btn-right',d==='right');snailCheckReady();}
+  function snailCheckReady(){document.getElementById('snail-go-btn').disabled=!(snailDir&&selectedMults.snail&&isBetValid('snail'));}
+  function snailGo(){
+    if(snailRunning||!snailDir||!selectedMults.snail||!isBetValid('snail'))return;
+    const bet=getBet('snail'),m=selectedMults.snail;snailRunning=true;document.getElementById('snail-go-btn').disabled=true;document.getElementById('snail-go-btn').textContent='달리는 중...';
+    document.getElementById('snail-result-msg').textContent='';
+    const snailEl=document.getElementById('snail'),trackW=document.getElementById('snail-track').offsetWidth;
+    snailEl.style.transition='none';snailEl.style.left='calc(50% - 16px)';snailEl.style.transform='translateY(-50%) scaleX(1)';
+    setTimeout(()=>{
+      const won=Math.random()<m.prob,moveDir=won?snailDir:(snailDir==='left'?'right':'left');
+      snailEl.style.transition='left 1.2s cubic-bezier(0.25,0.1,0.25,1)';snailEl.style.left=moveDir==='right'?(trackW-48)+'px':'4px';snailEl.style.transform=moveDir==='right'?'translateY(-50%) scaleX(1)':'translateY(-50%) scaleX(-1)';
+      setTimeout(async()=>{
+        const prize=calcPrize(bet,m.mult),msg=document.getElementById('snail-result-msg');
+        msg.textContent=won?`승리! +${fmt(prize)}원 (${m.label}, 수수료 7%)`:`패배! -${fmt(bet)}원`;msg.className='result-msg '+(won?'result-win':'result-lose');
+        await recordResult(won,bet,prize,`🐌 ${snailDir==='left'?'← 왼쪽':'오른쪽 →'} · ${m.label}`);
+        setTimeout(()=>{snailEl.style.transition='left 0.5s ease';snailEl.style.left='calc(50% - 16px)';snailEl.style.transform='translateY(-50%) scaleX(1)';setTimeout(()=>{document.getElementById('snail-go-btn').disabled=false;document.getElementById('snail-go-btn').textContent='출발!';snailRunning=false;},500);},800);
+      },1300);
+    },50);
+  }
+
+  const DICE_FACES=['⚀','⚁','⚂','⚃','⚄','⚅'];
+  let oeChoice=null,oeRolling=false;
+  function oeSelect(c){oeChoice=c;setBtn('btn-odd',c==='odd');setBtn('btn-even',c==='even');oeCheckReady();}
+  function oeCheckReady(){document.getElementById('oe-roll-btn').disabled=!(oeChoice&&selectedMults.oe&&isBetValid('oe'));}
+  function oeRoll(){
+    if(oeRolling||!oeChoice||!selectedMults.oe||!isBetValid('oe'))return;
+    const bet=getBet('oe'),m=selectedMults.oe;oeRolling=true;document.getElementById('oe-roll-btn').disabled=true;
+    const diceEl=document.getElementById('dice');document.getElementById('oddeven-result-msg').textContent='';
+    let ticker=setInterval(()=>{diceEl.textContent=DICE_FACES[Math.floor(Math.random()*6)];},80);
+    setTimeout(async()=>{
+      clearInterval(ticker);const won=Math.random()<m.prob;
+      const pool=oeChoice==='odd'?[1,3,5]:[2,4,6],wrongPool=oeChoice==='odd'?[2,4,6]:[1,3,5];
+      const num=won?pool[Math.floor(Math.random()*pool.length)]:wrongPool[Math.floor(Math.random()*wrongPool.length)];
+      diceEl.textContent=DICE_FACES[num-1];const prize=calcPrize(bet,m.mult),msg=document.getElementById('oddeven-result-msg');
+      msg.textContent=won?`${num} 나옴! 승리! +${fmt(prize)}원 (${m.label}, 수수료 7%)`:`${num} 나옴! 패배! -${fmt(bet)}원`;msg.className='result-msg '+(won?'result-win':'result-lose');
+      await recordResult(won,bet,prize,`🎲 ${oeChoice==='odd'?'홀':'짝'} (${num}) · ${m.label}`);document.getElementById('oe-roll-btn').disabled=false;oeRolling=false;
+    },800);
+  }
+
+  const SYMBOLS=['🍒','🍋','🍊','🍇','💎','7️⃣'],PAYOUTS={'🍒':2,'🍋':3,'🍊':5,'🍇':10,'💎':20,'7️⃣':50},WEIGHTS=[30,25,20,15,7,3];
+  let slotSpinning=false;
+  function weightedRandom(){const t=WEIGHTS.reduce((a,b)=>a+b,0);let r=Math.random()*t;for(let i=0;i<WEIGHTS.length;i++){r-=WEIGHTS[i];if(r<=0)return SYMBOLS[i];}return SYMBOLS[0];}
+  function slotCheckReady(){document.getElementById('slot-spin-btn').disabled=!isBetValid('slot')||slotSpinning;}
+  function slotSpin(){
+    if(slotSpinning||!isBetValid('slot'))return;
+    const bet=getBet('slot');slotSpinning=true;slotCheckReady();document.getElementById('slot-result-msg').textContent='';
+    const reels=[0,1,2].map(i=>document.getElementById('reel'+i));reels.forEach(r=>r.classList.add('spinning'));
+    const results=[weightedRandom(),weightedRandom(),weightedRandom()];
+    [0,1,2].forEach(i=>{setTimeout(()=>{reels[i].classList.remove('spinning');reels[i].textContent=results[i];if(i===2){setTimeout(async()=>{
+      const allSame=results[0]===results[1]&&results[1]===results[2],msg=document.getElementById('slot-result-msg');
+      if(allSame){const mult=PAYOUTS[results[0]],prize=calcPrize(bet,mult);msg.textContent=`${results.join('')} 대박! +${fmt(prize)}원 (×${mult}, 수수료 7%)`;msg.className='result-msg result-win';await recordResult(true,bet,prize,`🎰 ${results.join('')} ×${mult}`);}
+      else{msg.textContent=`아쉽! -${fmt(bet)}원`;msg.className='result-msg result-lose';await recordResult(false,bet,0,`🎰 ${results.join('')} 꽝`);}
+      slotSpinning=false;slotCheckReady();},300);}},500+i*400);});
+  }
+
+  buildMultBtns('coin-mult-btns','coin-mb-');
+  buildMultBtns('snail-mult-btns','snail-mb-');
+  buildMultBtns('oe-mult-btns','oe-mb-');
+</script>
+</body>
+</html>

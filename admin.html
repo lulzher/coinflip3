@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>관리자 페이지 – 미니 카지노</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans KR', sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+    /* ── Auth overlay ── */
+    #auth-overlay {
+      position: fixed; inset: 0; background: #f0f2f5;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 999; padding: 2rem;
+    }
+    .auth-box { background: #fff; border-radius: 16px; padding: 2.5rem 2rem; width: 100%; max-width: 380px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .auth-logo { text-align: center; font-size: 40px; margin-bottom: 0.5rem; }
+    .auth-title { text-align: center; font-size: 18px; font-weight: 700; color: #111; margin-bottom: 0.25rem; }
+    .auth-sub { text-align: center; font-size: 12px; color: #888; margin-bottom: 1.5rem; }
+    .auth-input { width: 100%; padding: 11px 13px; border-radius: 8px; border: 1.5px solid #ddd; font-size: 14px; font-family: inherit; outline: none; margin-bottom: 10px; transition: border-color 0.15s; }
+    .auth-input:focus { border-color: #3B5BDB; }
+    .auth-btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer; background: #3B5BDB; color: #fff; transition: opacity 0.15s; }
+    .auth-btn:hover { opacity: 0.85; }
+    .auth-error { font-size: 12px; color: #D85A30; text-align: center; min-height: 18px; margin-bottom: 6px; }
+
+    /* ── Layout ── */
+    .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .admin-title { font-size: 20px; font-weight: 700; color: #111; }
+    .admin-sub { font-size: 13px; color: #888; margin-top: 2px; }
+    .logout-btn { font-size: 13px; color: #666; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+    .logout-btn:hover { background: #f5f5f5; }
+
+    /* ── Summary cards ── */
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 2rem; }
+    .summary-card { background: #fff; border-radius: 12px; padding: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .summary-label { font-size: 12px; color: #888; margin-bottom: 6px; }
+    .summary-value { font-size: 24px; font-weight: 700; color: #111; }
+    .summary-value.blue { color: #3B5BDB; }
+    .summary-value.green { color: #0F6E56; }
+    .summary-value.red { color: #993C1D; }
+
+    /* ── Point grant panel ── */
+    .panel { background: #fff; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
+    .panel-title { font-size: 15px; font-weight: 600; color: #111; margin-bottom: 1rem; }
+    .grant-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .grant-form > div { display: flex; flex-direction: column; gap: 4px; }
+    .grant-form label { font-size: 12px; color: #888; }
+    .grant-select { padding: 9px 12px; border-radius: 8px; border: 1.5px solid #ddd; font-size: 14px; font-family: inherit; min-width: 200px; outline: none; }
+    .grant-select:focus { border-color: #3B5BDB; }
+    .grant-input { padding: 9px 12px; border-radius: 8px; border: 1.5px solid #ddd; font-size: 14px; width: 130px; font-family: inherit; outline: none; }
+    .grant-input:focus { border-color: #3B5BDB; }
+    .grant-btn { padding: 9px 20px; border-radius: 8px; border: none; background: #3B5BDB; color: #fff; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer; white-space: nowrap; }
+    .grant-btn:hover { opacity: 0.85; }
+    .grant-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .grant-msg { font-size: 13px; min-height: 20px; margin-top: 6px; }
+    .grant-ok { color: #0F6E56; }
+    .grant-err { color: #993C1D; }
+    .quick-amounts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+    .quick-amount { padding: 5px 10px; border-radius: 6px; border: 1px solid #ddd; background: #f8f8f8; font-size: 12px; cursor: pointer; font-family: inherit; }
+    .quick-amount:hover { background: #eee; }
+
+    /* ── User table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead th { text-align: left; padding: 10px 12px; font-size: 12px; color: #888; font-weight: 500; border-bottom: 2px solid #eee; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid #f0f0f0; transition: background 0.1s; }
+    tbody tr:hover { background: #fafafa; }
+    tbody td { padding: 12px 12px; vertical-align: middle; }
+    .user-name { font-weight: 500; color: #111; }
+    .user-email { font-size: 12px; color: #888; margin-top: 2px; }
+    .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+    .badge-profit { background: #E6F4EF; color: #0F6E56; }
+    .badge-loss { background: #FAECE7; color: #993C1D; }
+    .badge-zero { background: #f0f0f0; color: #888; }
+    .action-row { display: flex; gap: 6px; }
+    .tbl-btn { padding: 5px 10px; border-radius: 6px; border: 1px solid #ddd; background: #fff; font-size: 12px; cursor: pointer; font-family: inherit; }
+    .tbl-btn:hover { background: #f0f0f0; }
+    .tbl-btn.danger { border-color: #F0997B; color: #993C1D; }
+    .tbl-btn.danger:hover { background: #FAECE7; }
+    .loading-row { text-align: center; padding: 2rem; color: #888; font-size: 14px; }
+
+    /* ── Log modal ── */
+    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 500; align-items: center; justify-content: center; }
+    .modal-backdrop.open { display: flex; }
+    .modal { background: #fff; border-radius: 16px; padding: 1.5rem; width: 100%; max-width: 500px; max-height: 80vh; overflow-y: auto; margin: 1rem; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .modal-title { font-size: 16px; font-weight: 600; }
+    .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #888; }
+    .modal-log-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+    .modal-log-item:last-child { border-bottom: none; }
+
+    @media(max-width: 700px) {
+      .summary-grid { grid-template-columns: repeat(2,1fr); }
+      .grant-form { flex-direction: column; }
+      .grant-select, .grant-input { width: 100%; min-width: unset; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Auth Overlay ── -->
+<div id="auth-overlay">
+  <div class="auth-box">
+    <div class="auth-logo">🔐</div>
+    <div class="auth-title">관리자 로그인</div>
+    <div class="auth-sub">관리자 계정으로만 접근할 수 있어요</div>
+    <input class="auth-input" type="email" id="admin-email" placeholder="이메일" />
+    <input class="auth-input" type="password" id="admin-pw" placeholder="비밀번호" onkeydown="if(event.key==='Enter')adminLogin()" />
+    <div class="auth-error" id="admin-login-error"></div>
+    <button class="auth-btn" onclick="adminLogin()">로그인</button>
+  </div>
+</div>
+
+<!-- ── Admin Panel ── -->
+<div id="admin-main" style="display:none;">
+  <div class="admin-wrap">
+    <div class="admin-header">
+      <div>
+        <div class="admin-title">🎰 미니 카지노 관리자</div>
+        <div class="admin-sub" id="admin-name-label">관리자</div>
+      </div>
+      <button class="logout-btn" onclick="adminLogout()">로그아웃</button>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-grid">
+      <div class="summary-card"><div class="summary-label">전체 유저</div><div class="summary-value blue" id="stat-users">-</div></div>
+      <div class="summary-card"><div class="summary-label">총 잔액 합계</div><div class="summary-value" id="stat-total-bal">-</div></div>
+      <div class="summary-card"><div class="summary-label">총 승리</div><div class="summary-value green" id="stat-wins">-</div></div>
+      <div class="summary-card"><div class="summary-label">총 패배</div><div class="summary-value red" id="stat-losses">-</div></div>
+    </div>
+
+    <!-- Point grant -->
+    <div class="panel">
+      <div class="panel-title">💰 포인트 지급</div>
+      <div class="grant-form">
+        <div>
+          <label>유저 선택</label>
+          <select class="grant-select" id="grant-user-select">
+            <option value="">유저를 선택하세요</option>
+          </select>
+        </div>
+        <div>
+          <label>지급 금액</label>
+          <input class="grant-input" type="number" id="grant-amount" placeholder="0" min="1" />
+          <div class="quick-amounts">
+            <button class="quick-amount" onclick="setGrantAmount(100)">100</button>
+            <button class="quick-amount" onclick="setGrantAmount(500)">500</button>
+            <button class="quick-amount" onclick="setGrantAmount(1000)">1,000</button>
+            <button class="quick-amount" onclick="setGrantAmount(5000)">5,000</button>
+            <button class="quick-amount" onclick="setGrantAmount(10000)">10,000</button>
+          </div>
+        </div>
+        <div style="padding-bottom:2px;">
+          <button class="grant-btn" id="grant-btn" onclick="grantPoints()">지급하기</button>
+        </div>
+      </div>
+      <div class="grant-msg" id="grant-msg"></div>
+    </div>
+
+    <!-- User table -->
+    <div class="panel">
+      <div class="panel-title">👥 유저 목록</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>유저</th>
+              <th>잔액</th>
+              <th>총 손익</th>
+              <th>승 / 패</th>
+              <th>게임 수</th>
+              <th>관리</th>
+            </tr>
+          </thead>
+          <tbody id="user-table-body">
+            <tr><td colspan="6" class="loading-row">유저 목록을 불러오는 중...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 게임 기록 모달 -->
+<div class="modal-backdrop" id="log-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">게임 기록</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-log-content">로딩 중...</div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, doc, getDoc, getDocs, updateDoc, addDoc, query, orderBy, limit, onSnapshot, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBWEkYQqW0HF5jgklL3tELwLKyUxkmKh4Y",
+    authDomain: "bett-10c4f.firebaseapp.com",
+    projectId: "bett-10c4f",
+    storageBucket: "bett-10c4f.firebasestorage.app",
+    messagingSenderId: "643489339476",
+    appId: "1:643489339476:web:570e948837c21fedf0b5c1",
+    measurementId: "G-R6R24L14Z8"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // ▶ 관리자 이메일 목록 (여기에 추가)
+  const ADMIN_EMAILS = ['admin@casino.com'];  // ← 관리자 이메일로 변경하세요
+
+  let allUsers = [];
+
+  window.adminLogin = async () => {
+    const email = document.getElementById('admin-email').value.trim();
+    const pw = document.getElementById('admin-pw').value;
+    const err = document.getElementById('admin-login-error');
+    err.textContent = '';
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, pw);
+      if (!ADMIN_EMAILS.includes(cred.user.email)) {
+        await signOut(auth);
+        err.textContent = '관리자 권한이 없는 계정이에요.';
+      }
+    } catch(e) {
+      const msgs = {
+        'auth/invalid-credential': '이메일 또는 비밀번호가 올바르지 않아요.',
+        'auth/user-not-found': '등록된 이메일이 없어요.',
+        'auth/wrong-password': '비밀번호가 틀렸어요.',
+      };
+      err.textContent = msgs[e.code] || '오류가 발생했어요.';
+    }
+  };
+
+  window.adminLogout = async () => { await signOut(auth); };
+
+  onAuthStateChanged(auth, user => {
+    if (user && ADMIN_EMAILS.includes(user.email)) {
+      document.getElementById('auth-overlay').style.display = 'none';
+      document.getElementById('admin-main').style.display = 'block';
+      document.getElementById('admin-name-label').textContent = user.email;
+      startListeningUsers();
+    } else {
+      document.getElementById('auth-overlay').style.display = 'flex';
+      document.getElementById('admin-main').style.display = 'none';
+    }
+  });
+
+  function fmt(n){ return Math.round(n).toLocaleString(); }
+
+  // 실시간 유저 목록 감지
+  function startListeningUsers() {
+    onSnapshot(collection(db, 'users'), snap => {
+      allUsers = [];
+      snap.forEach(d => { allUsers.push({ uid: d.id, ...d.data() }); });
+      renderSummary();
+      renderUserTable();
+      populateGrantSelect();
+    });
+  }
+
+  function renderSummary() {
+    document.getElementById('stat-users').textContent = allUsers.length;
+    const totalBal = allUsers.reduce((s,u)=>s+(u.balance||0),0);
+    const totalWins = allUsers.reduce((s,u)=>s+(u.wins||0),0);
+    const totalLoss = allUsers.reduce((s,u)=>s+(u.losses||0),0);
+    document.getElementById('stat-total-bal').textContent = fmt(totalBal)+'P';
+    document.getElementById('stat-wins').textContent = fmt(totalWins);
+    document.getElementById('stat-losses').textContent = fmt(totalLoss);
+  }
+
+  function renderUserTable() {
+    const tbody = document.getElementById('user-table-body');
+    if (!allUsers.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="loading-row">유저가 없어요.</td></tr>';
+      return;
+    }
+    const sorted = [...allUsers].sort((a,b)=>(b.balance||0)-(a.balance||0));
+    tbody.innerHTML = sorted.map(u => {
+      const profit = u.profit||0;
+      const badge = profit>0 ? `<span class="badge badge-profit">+${fmt(profit)}</span>`
+                  : profit<0 ? `<span class="badge badge-loss">${fmt(profit)}</span>`
+                  : `<span class="badge badge-zero">±0</span>`;
+      return `
+        <tr>
+          <td>
+            <div class="user-name">${u.displayName||'(이름 없음)'}</div>
+            <div class="user-email">${u.email||u.uid}</div>
+          </td>
+          <td><strong>${fmt(u.balance||0)}</strong>P</td>
+          <td>${badge}</td>
+          <td>${u.wins||0} / ${u.losses||0}</td>
+          <td>${u.gameCount||0}판</td>
+          <td>
+            <div class="action-row">
+              <button class="tbl-btn" onclick="quickGrant('${u.uid}','${u.displayName||u.email}')">지급</button>
+              <button class="tbl-btn" onclick="viewLogs('${u.uid}','${u.displayName||u.email}')">기록</button>
+              <button class="tbl-btn danger" onclick="resetUser('${u.uid}','${u.displayName||u.email}')">초기화</button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  function populateGrantSelect() {
+    const sel = document.getElementById('grant-user-select');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">유저를 선택하세요</option>';
+    allUsers.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.uid;
+      opt.textContent = `${u.displayName||'(이름없음)'} (${u.email||u.uid}) — ${fmt(u.balance||0)}P`;
+      sel.appendChild(opt);
+    });
+    if (cur) sel.value = cur;
+  }
+
+  window.setGrantAmount = function(n){ document.getElementById('grant-amount').value = n; };
+
+  window.quickGrant = function(uid, name) {
+    document.getElementById('grant-user-select').value = uid;
+    document.getElementById('grant-amount').focus();
+    document.getElementById('grant-msg').textContent = `"${name}" 선택됨`;
+    document.getElementById('grant-msg').className = 'grant-msg grant-ok';
+  };
+
+  window.grantPoints = async () => {
+    const uid = document.getElementById('grant-user-select').value;
+    const amount = parseInt(document.getElementById('grant-amount').value);
+    const msg = document.getElementById('grant-msg');
+    const btn = document.getElementById('grant-btn');
+    if (!uid) { msg.textContent='유저를 선택해주세요.'; msg.className='grant-msg grant-err'; return; }
+    if (!amount||amount<1) { msg.textContent='금액을 입력해주세요.'; msg.className='grant-msg grant-err'; return; }
+    btn.disabled = true; msg.textContent='처리 중...'; msg.className='grant-msg';
+    try {
+      await updateDoc(doc(db,'users',uid), { balance: increment(amount) });
+      // 지급 로그
+      await addDoc(collection(db,'users',uid,'logs'), {
+        won: true, bet: 0, prize: amount,
+        label: `💰 관리자 지급 +${fmt(amount)}P`,
+        balance: (allUsers.find(u=>u.uid===uid)?.balance||0)+amount,
+        num: 0, createdAt: serverTimestamp()
+      });
+      msg.textContent = `✅ ${fmt(amount)}P 지급 완료!`;
+      msg.className = 'grant-msg grant-ok';
+      document.getElementById('grant-amount').value = '';
+    } catch(e) {
+      msg.textContent = '오류가 발생했어요: '+e.message;
+      msg.className = 'grant-msg grant-err';
+    }
+    btn.disabled = false;
+  };
+
+  window.resetUser = async (uid, name) => {
+    if (!confirm(`"${name}" 유저의 잔액과 통계를 초기화할까요?\n(게임 기록은 유지됩니다)`)) return;
+    try {
+      await updateDoc(doc(db,'users',uid), { balance:0, wins:0, losses:0, profit:0, gameCount:0 });
+      alert('초기화 완료!');
+    } catch(e) { alert('오류: '+e.message); }
+  };
+
+  window.viewLogs = async (uid, name) => {
+    document.getElementById('modal-title').textContent = `${name}의 게임 기록`;
+    document.getElementById('modal-log-content').textContent = '불러오는 중...';
+    document.getElementById('log-modal').classList.add('open');
+    try {
+      const q = query(collection(db,'users',uid,'logs'), orderBy('createdAt','desc'), limit(50));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        document.getElementById('modal-log-content').innerHTML = '<p style="color:#888;font-size:13px;padding:1rem 0;">게임 기록이 없어요.</p>';
+        return;
+      }
+      const html = snap.docs.map(d => {
+        const l = d.data();
+        const color = l.won ? '#0F6E56' : '#993C1D';
+        const sign = l.won ? '+' : '-';
+        return `<div class="modal-log-item">
+          <span>${l.label||'-'}</span>
+          <span style="color:${color};font-weight:500;">${sign}${fmt(l.prize||l.bet||0)}P</span>
+        </div>`;
+      }).join('');
+      document.getElementById('modal-log-content').innerHTML = html;
+    } catch(e) {
+      document.getElementById('modal-log-content').textContent = '오류: '+e.message;
+    }
+  };
+
+  window.closeModal = () => { document.getElementById('log-modal').classList.remove('open'); };
+  document.getElementById('log-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('log-modal')) closeModal();
+  });
+</script>
+</body>
+</html>
